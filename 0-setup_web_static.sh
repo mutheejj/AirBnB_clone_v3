@@ -1,44 +1,25 @@
 #!/usr/bin/env bash
-# Prepare my webservers (web-01 & web-02)
+# Sets up webservers for deployment: (Run script on both servers)
+# If not done, does the following:
+#     installs Nginx; creates folders /data/, /data/web_static/,
+#     /data/web_static/releases/, /data/web_static/shared,
+#     /data/web_static/releases/test
+#     /data/web_static/releases/test/index.html (with some content)
+# Create symbolic link /data/web_static/current to data/web_static/releases/test
+#     delete and recreate symbolic link each time script's ran
+# Recursively assign ownership of /data/ folder to user and group 'ubuntu'
+# Update the Nginx config to serve content of /data/web_static/current/ to hbnb_static (ex: https://mydomainname.tech/hbnb_static)
+#     restart Nginx
+# curl localhost/hbnb_static/index.html should return sample text"
 
-# uncomment for easy debugging
-#set -x
+ADD_WEBSTATIC="\\\tlocation /hbnb_static/ {\n\t\talias /data/web_static/current/;\n\t}\n"
 
-# colors
-blue='\e[1;34m'
-#brown='\e[0;33m'
-green='\e[1;32m'
-reset='\033[0m'
-
-echo -e "${blue}Updating and doing some minor checks...${reset}\n"
-
-# install nginx if not present
-if [ ! -x /usr/sbin/nginx ]; then
-	sudo apt-get update -y -qq && \
-	     sudo apt-get install -y nginx
-fi
-
-echo -e "\n${blue}Setting up some minor stuff.${reset}\n"
-
-# Create directories...
-sudo mkdir -p /data/web_static/releases/test /data/web_static/shared/
-
-# create index.html for test directory
-echo "<h1>Welcome to th3gr00t.tech <\h1>" | sudo dd status=none of=/data/web_static/releases/test/index.html
-
-# create symbolic link
-sudo ln -sf /data/web_static/releases/test /data/web_static/current
-
-# give user ownership to directory
-sudo chown -R ubuntu:ubuntu /data/
-
-# backup default server config file
-sudo cp /etc/nginx/sites-enabled/default nginx-sites-enabled_default.backup
-
-# Set-up the content of /data/web_static/current/ to redirect
-# to domain.tech/hbnb_static
-sudo sed -i '37i\\tlocation /hbnb_static/ {\n\t\talias /data/web_static/current/;\n\t}\n' /etc/nginx/sites-available/default
-
-sudo service nginx restart
-
-echo -e "${green}Completed${reset}"
+sudo apt-get update
+sudo apt-get -y upgrade
+sudo apt-get -y install nginx
+sudo mkdir -p /data/web_static/releases/test /data/web_static/shared
+echo "Test index.html file to test Nginx config" | sudo tee /data/web_static/releases/test/index.html
+sudo ln -sf /data/web_static/releases/test/ /data/web_static/current
+sudo chown -hR ubuntu:ubuntu /data/
+sudo sed -i "35i $ADD_WEBSTATIC" /etc/nginx/sites-available/default
+sudo service nginx start
